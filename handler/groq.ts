@@ -1,6 +1,6 @@
 // don't get confused by the name groq used here, initially i was using groq provider but after realizing it accepts openAI compatible endpoint i just used it for any other provider that accepts openAI end points and felt lazy to rename after each provider
 
-import { AIclient, AIclient4 } from "../core/groq";
+import { AIclient, AIclient4, QwenClient } from "../core/groq";
 import WAWebJS from "whatsapp-web.js";
 import { getSystemPrompt } from "../prompts/sys_pro";
 import { getRedisUserHistory, saveUserHistory } from "../utils/redis";
@@ -46,7 +46,7 @@ export const Groq_LLMHandler = async (query: WAWebJS.Message) => {
 
     let content = await AIclient4.responses.create({
       input: messages,
-      model: openRouter_gemma4_31b_model,
+      model: "openai/gpt-5.4-mini",
       temperature: 1,
       top_p: 1,
       stream: false,
@@ -92,7 +92,7 @@ export const Groq_LLMHandler = async (query: WAWebJS.Message) => {
 
       content = await AIclient4.responses.create({
         input: messages,
-        model: openRouter_gemma4_31b_model,
+        model: "openai/gpt-5.4-mini",
         temperature: 1,
         top_p: 1,
         stream: false,

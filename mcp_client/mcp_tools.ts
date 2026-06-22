@@ -1,4 +1,9 @@
-import { connectMCPClient, mcp_client, reconnectMCPClient } from "../core/fastmcp";
+import {
+  connectMCPClient,
+  mcp_client,
+  reconnectMCPClient,
+} from "../core/fastmcp";
+import { clientTools } from "../tools/clientTools";
 
 export type GroqTool = {
   type: "function";
@@ -24,13 +29,17 @@ export async function get_tools(): Promise<GroqTool[]> {
   // this is for openAI response endpoint
   await connectMCPClient();
   const tool_result = await listToolsWithRetry();
-  return tool_result.tools.map((tool) => ({
-    type: "function",
-    name: tool.name,
-    description: tool.description ?? "",
-    parameters: tool.inputSchema,
-    strict: false,
-  }));
+  const mcp_tools = tool_result.tools.map(
+    (tool): GroqTool => ({
+      type: "function",
+      name: tool.name,
+      description: tool.description ?? "",
+      parameters: tool.inputSchema,
+      strict: false,
+    }),
+  );
+  return [...mcp_tools];
+  // return [...mcp_tools, ...clientTools];
 }
 
 export async function get_tools_2(): Promise<any[]> {

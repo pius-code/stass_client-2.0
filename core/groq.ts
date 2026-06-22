@@ -34,3 +34,9 @@ export const anthropicClient = new OpenAI({
   apiKey: process.env.ANTHROPIC_KEY,
   baseURL: "https://api.anthropic.com/v1",
 });
+
+export const QwenClient = new OpenAI({
+  apiKey: process.env.QWEN_API_KEY,
+  baseURL:
+    "https://ws-n5t9fuur0k5rnpm2.ap-southeast-1.maas.aliyuncs.com/api/v2/apps/protocols/compatible-mode/v1",
+});
