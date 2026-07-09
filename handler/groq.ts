@@ -79,7 +79,7 @@ export const Groq_LLMHandler = async (query: WAWebJS.Message) => {
         const outputItem = {
           type: "function_call_output",
           call_id: call.call_id,
-          output: JSON.stringify(result),
+          output: extractMCPResult(result),
         };
         messages.push(outputItem);
         // Also persist to Redis history in a readable form for future sessions
@@ -114,6 +114,7 @@ export const Groq_LLMHandler = async (query: WAWebJS.Message) => {
     query.reply(content.output_text);
     msg.clearState();
     await saveUserHistory(userId, messages);
+    return content.output_text;
   } catch (error) {
     query.reply("An error occurred while processing your request.");
     console.error("Error in LLMHandler:", error);
