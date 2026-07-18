@@ -1,8 +1,10 @@
 # stass_client 2.0
 
-An unofficial WhatsApp client that lets you connect MCP (Model Context Protocol) tools to an LLM and interact with it over WhatsApp.
+A WhatsApp client that lets you connect MCP (Model Context Protocol) tools to an LLM and interact with it over WhatsApp — built on the official **WhatsApp Business Platform (Cloud API)**, not browser automation.
 
 The difference between 1.0 and 2.0 is that 2.0 has explicit support for MCP clients, while 1.0 relied on the LLM provider's built-in MCP server support. This version also handles MCP OAuth authentication.
+
+> **Migration note:** This project originally ran on `whatsapp-web.js` (unofficial Puppeteer-based WhatsApp automation). It has since been migrated to the official WhatsApp Cloud API — messages now arrive via webhook instead of a logged-in browser session. See [WABA Setup](#waba-setup) below.
 
 ---
 
@@ -22,21 +24,39 @@ Copy `.env.example` to `.env` and fill in your keys:
 cp .env.example .env
 ```
 
-### 3. Configure your allowed WhatsApp number
-
-In `main.ts`, replace `"exampleID@lid"` with your own WhatsApp ID. Every incoming message prints its ID to the console, so you can just copy it from there. You can also remove the `if` check entirely to allow anyone to use the bot — just be careful about costs if you're on a paid model.
-
-### 4. Set your MCP server URL
+### 3. Set your MCP server URL
 
 Set `MCP_URL` in your `.env` to point to your MCP server (e.g. `http://127.0.0.1:8080/mcp`).
 
-### 5. Run
+### 4. Run
 
 ```bash
 npm run dev
 ```
 
-A QR code will appear in your terminal. Scan it with your phone via **WhatsApp > Linked Devices > Link a Device**. Once authenticated, the bot is live.
+This starts the Express server (default port `3000`), which is what the WhatsApp Cloud API webhook will call. See [WABA Setup](#waba-setup) to actually connect a WhatsApp number to it.
+
+---
+
+## WABA Setup
+
+This app receives messages via a webhook rather than a logged-in WhatsApp session, so you need a WhatsApp Business Account (WABA) set up in Meta's developer platform.
+
+1. **Create a Meta app + WABA** at [developers.facebook.com](https://developers.facebook.com) and add the WhatsApp product. For development/testing, Meta gives you a free test phone number — no business verification required, but you can only message up to 5 manually-added, OTP-verified recipient numbers.
+2. **Set `PHONE_ID` and `ACCESS_TOKEN`** in `.env` from the app's API Setup page.
+   - The Quickstart-page access token is **temporary** (expires quickly). For anything longer-lived, generate a **System User access token** in Meta Business Settings instead — it can be issued with no expiration.
+3. **Expose your local server publicly** (Meta needs to reach it) — e.g. with [ngrok](https://ngrok.com):
+   ```bash
+   ngrok http 3000
+   ```
+   Note: ngrok's free tier gives you a new URL every restart, so you'll need to re-register the webhook URL in Meta's dashboard each time unless you use a static domain.
+4. **Register the webhook** in the Meta app dashboard, pointing to:
+   - Callback URL: `https://<your-public-url>/api/v1/webhook_whatsapp`
+   - Verify token: must match the `verify_token` constant in `utils/express.ts` (currently hardcoded there, not in `.env`)
+   - Subscribe to the `messages` field.
+5. Send a WhatsApp message to your test number — it should hit the webhook, get logged, and processed by `Groq_LLMHandler`.
+
+**Known gap:** audio/voice-note messages (`message.downloadMedia()` in `main.ts`) still assume the old `whatsapp-web.js` media API and aren't wired up for the Cloud API's media-ID download flow yet (see Todos).
 
 ---
 
@@ -55,7 +75,7 @@ The main handler is `handler/groq.ts` — despite the name, it works with **any 
 
 **Note on Anthropic:** The handler uses the Responses API (`/responses` endpoint) which Anthropic does not support directly. Don't use `anthropicClient`. Instead, use `AIclient4` (OpenRouter) and set the model to any Claude model from `model/model.ts` — e.g. `openRouter_claude_Sonnet_model` or `openRouter_claude_haiku_model`.
 
-**Note on Gemini:** `Gemini_LLMHandler` in `handler/gemini.ts` exists but hasn't been fully tested. Use a paid Gemini model if you try it — the free tier doesn't work well. You may also want to update the system prompt in `prompts/sys_pro.ts` to something more suitable.
+**Note on Gemini:** if you use `AIclient3`/`AIclient2`, use a paid Gemini model — the free tier doesn't work well. You may also want to update the system prompt in `prompts/sys_pro.ts` to something more suitable.
 
 Model IDs for all providers are in `model/model.ts`.
 
@@ -93,5 +113,6 @@ Send the message `clear` to the bot and it will wipe your conversation history f
 
 ## Todos
 
-- [ ] Migrate to official WhatsApp Business API
-- [ ] Add support for media (images and audio)
+- [ ] Wire up audio/voice-note handling for the Cloud API's media-ID download flow (`main.ts`'s `message.downloadMedia()` is still a `whatsapp-web.js`-era stub)
+- [ ] Move the webhook verify token in `utils/express.ts` into `.env` instead of hardcoding it
+- [ ] Get a non-expiring System User access token for `ACCESS_TOKEN` instead of the temporary Quickstart token

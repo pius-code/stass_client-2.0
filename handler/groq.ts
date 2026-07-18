@@ -1,9 +1,12 @@
 // don't get confused by the name groq used here, initially i was using groq provider but after realizing it accepts openAI compatible endpoint i just used it for any other provider that accepts openAI end points and felt lazy to rename after each provider
 
 import { AIclient, AIclient4, QwenClient } from "../core/groq";
-import WAWebJS from "whatsapp-web.js";
 import { getSystemPrompt } from "../prompts/sys_pro";
-import { getRedisUserHistory, saveUserHistory } from "../utils/redis";
+import {
+  getRedisUserHistory,
+  saveUserHistory,
+  addSingleMessageToHistory,
+} from "../utils/redis";
 import {
   groq_model,
   openRouter_claude_Sonnet_model,
@@ -12,6 +15,9 @@ import {
 } from "../model/model";
 import { get_tools } from "../mcp_client/mcp_tools";
 import { tool_call_result } from "../mcp_client/mcp_tool_call_handler";
+import { sendMessage } from "../whatsapp";
+
+const userQueues = new Map<string, Promise<void>>();
 
 function extractMCPResult(result: any): string {
   try {
@@ -30,17 +36,14 @@ function extractMCPResult(result: any): string {
   return JSON.stringify(result);
 }
 
-export const Groq_LLMHandler = async (query: WAWebJS.Message) => {
-  const msg = await query.getChat();
-  await msg.sendStateTyping();
-
+const _process = async (query: any) => {
   try {
     const userId = query.from;
+    await addSingleMessageToHistory(userId, "user", query.text.body);
     const userHistory = await getRedisUserHistory(userId);
     const messages = [
       { role: "system", content: getSystemPrompt() },
       ...userHistory,
-      { role: "user", content: query.body },
     ];
     const tools = await get_tools();
 
@@ -111,12 +114,24 @@ export const Groq_LLMHandler = async (query: WAWebJS.Message) => {
     // Push the final assistant text message to your thread
     messages.push({ role: "assistant", content: content.output_text });
 
-    query.reply(content.output_text);
-    msg.clearState();
+    sendMessage(query.from, content.output_text);
     await saveUserHistory(userId, messages);
     return content.output_text;
   } catch (error) {
-    query.reply("An error occurred while processing your request.");
     console.error("Error in LLMHandler:", error);
   }
+};
+
+export const Groq_LLMHandler = (query: any) => {
+  const userId = query.from;
+  const previous = userQueues.get(userId) ?? Promise.resolve();
+  const current = previous.then(() => _process(query));
+  userQueues.set(
+    userId,
+    current.then(
+      () => {},
+      () => {},
+    ),
+  );
+  return current;
 };
