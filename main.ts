@@ -6,6 +6,7 @@ import { init_and_handle_server } from "./core/express.js";
 import "./utils/express.js";
 import { sendMessage, sendTypingIndicator } from "./whatsapp.js";
 import { whatsappMessageIds } from "./utils/whatsapp.js";
+import { vtt } from "./handler/audio_handler.js";
 
 await connectMCPClient();
 init_and_handle_server();
@@ -24,26 +25,17 @@ app.post("/api/v1/webhook_whatsapp", async (req, res) => {
     setTimeout(() => whatsappMessageIds.delete(message.id), 1000 * 60 * 60 * 4);
     sendTypingIndicator(message.id);
   }
+  console.log(JSON.stringify(req.body, null, 2));
 
   try {
-    if (message.text.body.toLowerCase() === "clear") {
+    if (message.text?.body?.toLowerCase() === "clear") {
       await clearUserHistory(message.from);
       sendMessage(message.from, "conversation cleared");
       return;
     }
-    if (message.type === "audio" || message.type === "ptt") {
-      const audio = await message.downloadMedia();
-      const transcribeRes = await fetch(
-        "http://localhost:8080/api/v1/asha/twi_transcribe",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ audio: audio.data }),
-        },
-      );
-      const { text } = await transcribeRes.json();
-      (message as any).body = text;
-
+    if (message.type === "audio") {
+      const text = await vtt(message);
+      (message as any).text = { body: text.text };
       const twiText = await Groq_LLMHandler(message);
       // if (twiText) {
       //   const speechRes = await fetch("http://localhost:8080/speech", {
@@ -56,6 +48,7 @@ app.post("/api/v1/webhook_whatsapp", async (req, res) => {
       // }
       return;
     }
+
     Groq_LLMHandler(message);
   } catch (error) {
     console.error("Error handling message:", error);

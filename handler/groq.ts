@@ -12,10 +12,12 @@ import {
   openRouter_claude_Sonnet_model,
   openRouter_claude_haiku_model,
   openRouter_gemma4_31b_model,
+  openRouter_gpt_model,
 } from "../model/model";
 import { get_tools } from "../mcp_client/mcp_tools";
 import { tool_call_result } from "../mcp_client/mcp_tool_call_handler";
 import { sendMessage } from "../whatsapp";
+import { imtb64 } from "./image_handler";
 
 const userQueues = new Map<string, Promise<void>>();
 
@@ -39,8 +41,19 @@ function extractMCPResult(result: any): string {
 const _process = async (query: any) => {
   try {
     const userId = query.from;
-    await addSingleMessageToHistory(userId, "user", query.text.body);
+    const userContent = query.image
+      ? [
+          { type: "input_text", text: query.text?.body || "" },
+          {
+            type: "input_image",
+            image_url: `data:image/jpeg;base64,${await imtb64(query)}`,
+          },
+        ]
+      : query.text.body;
+
+    await addSingleMessageToHistory(userId, "user", userContent);
     const userHistory = await getRedisUserHistory(userId);
+
     const messages = [
       { role: "system", content: getSystemPrompt() },
       ...userHistory,
@@ -49,7 +62,7 @@ const _process = async (query: any) => {
 
     let content = await AIclient4.responses.create({
       input: messages,
-      model: "openai/gpt-5.4-mini",
+      model: openRouter_gpt_model,
       temperature: 1,
       top_p: 1,
       stream: false,
@@ -95,7 +108,7 @@ const _process = async (query: any) => {
 
       content = await AIclient4.responses.create({
         input: messages,
-        model: "openai/gpt-5.4-mini",
+        model: openRouter_gpt_model,
         temperature: 1,
         top_p: 1,
         stream: false,
@@ -115,7 +128,8 @@ const _process = async (query: any) => {
     messages.push({ role: "assistant", content: content.output_text });
 
     sendMessage(query.from, content.output_text);
-    await saveUserHistory(userId, messages);
+    // userHistory (+ system prompt) is already persisted; only append what's new this turn.
+    await saveUserHistory(userId, messages.slice(1 + userHistory.length));
     return content.output_text;
   } catch (error) {
     console.error("Error in LLMHandler:", error);
