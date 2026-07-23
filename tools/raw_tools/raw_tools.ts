@@ -1,7 +1,7 @@
 import { scheduleSchema } from "../../types/types";
 import cron, { type ScheduledTask } from "node-cron";
 
-// for now it doesnt persist in a database, jobs will be destroyed upon restart
+// TODO: for now it doesnt persist in a database, jobs will be destroyed upon restart
 const cron_map: Record<string, ScheduledTask> = {};
 
 export async function callAgentToWork(prompt: string) {

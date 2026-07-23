@@ -58,7 +58,7 @@ const _process = async (query: any) => {
       { role: "system", content: getSystemPrompt() },
       ...userHistory,
     ];
-    const tools = await get_tools();
+    const toolsx = await get_tools();
 
     let content = await AIclient4.responses.create({
       input: messages,
@@ -70,7 +70,11 @@ const _process = async (query: any) => {
       //   effort: "medium",
       // },
       tool_choice: "auto",
-      tools,
+      tools: [
+        toolsx,
+        { type: "openrouter:web_search" },
+        { type: "openrouter:web_fetch" },
+      ] as any,
     });
 
     console.log("LLM Response:", JSON.stringify(content, null, 2));
@@ -116,7 +120,11 @@ const _process = async (query: any) => {
         //   effort: "medium",
         // },
         tool_choice: "auto",
-        tools,
+        tools: [
+          toolsx,
+          { type: "openrouter:web_search" },
+          { type: "openrouter:web_fetch" },
+        ] as any,
       });
 
       functionCalls = content.output.filter(

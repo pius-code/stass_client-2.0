@@ -64,14 +64,14 @@ This app receives messages via a webhook rather than a logged-in WhatsApp sessio
 
 The main handler is `handler/groq.ts` — despite the name, it works with **any OpenAI-compatible endpoint**. All available clients are defined in `core/groq.ts`:
 
-| Client | Provider | Notes |
-|---|---|---|
-| `AIclient` | [Groq](https://console.groq.com) | Fast inference, set `GROQ_API_KEY` |
-| `AIclient4` | [OpenRouter](https://openrouter.ai) | Recommended — access to many models including Claude, set `OPEN_ROUTER_KEY` |
-| `AIclient3` | Google Gemini (OpenAI-compatible endpoint) | Set `GEMINI_API_KEY` |
-| `AIclient2` | Google Gemini (native SDK) | Set `GEMINI_API_KEY` |
-| `ollamaClient` | Local Ollama | Untested |
-| `anthropicClient` | Anthropic direct | **Do not use** — see note below |
+| Client            | Provider                                   | Notes                                                                       |
+| ----------------- | ------------------------------------------ | --------------------------------------------------------------------------- |
+| `AIclient`        | [Groq](https://console.groq.com)           | Fast inference, set `GROQ_API_KEY`                                          |
+| `AIclient4`       | [OpenRouter](https://openrouter.ai)        | Recommended — access to many models including Claude, set `OPEN_ROUTER_KEY` |
+| `AIclient3`       | Google Gemini (OpenAI-compatible endpoint) | Set `GEMINI_API_KEY`                                                        |
+| `AIclient2`       | Google Gemini (native SDK)                 | Set `GEMINI_API_KEY`                                                        |
+| `ollamaClient`    | Local Ollama                               | Untested                                                                    |
+| `anthropicClient` | Anthropic direct                           | **Do not use** — see note below                                             |
 
 **Note on Anthropic:** The handler uses the Responses API (`/responses` endpoint) which Anthropic does not support directly. Don't use `anthropicClient`. Instead, use `AIclient4` (OpenRouter) and set the model to any Claude model from `model/model.ts` — e.g. `openRouter_claude_Sonnet_model` or `openRouter_claude_haiku_model`.
 
@@ -116,3 +116,10 @@ Send the message `clear` to the bot and it will wipe your conversation history f
 - [ ] Wire up audio/voice-note handling for the Cloud API's media-ID download flow (`main.ts`'s `message.downloadMedia()` is still a `whatsapp-web.js`-era stub)
 - [ ] Move the webhook verify token in `utils/express.ts` into `.env` instead of hardcoding it
 - [ ] Get a non-expiring System User access token for `ACCESS_TOKEN` instead of the temporary Quickstart token
+
+HOW TO SELECT A MODEL
+
+1. the following criteria is worth considering when selecting a model for your LLM client:
+
+- you can have user image input, so you need a model that can handle image input.
+- you can have web search so you need a model that can handle web search.
